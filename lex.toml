@@ -1,0 +1,8 @@
+[package]
+name        = "lex-jose"
+version     = "0.1.0"
+lex         = "0.9.10"
+description = "JOSE for Lex: JWS / JWT / JWK over std.crypto. EdDSA + HMAC today; ES256 + SD-JWT on deck for AP2."
+license     = "EUPL-1.2"
+
+[dependencies]
