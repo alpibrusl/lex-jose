@@ -1,6 +1,6 @@
 # lex-jose
 
-**Part of the [Lex](https://lexlang.org) project** — [Manifesto](https://www.alpibru.com/manifesto) · [All packages](https://lexlang.org)
+**Part of the [Lex](https://lexlang.org) project** — [Manifesto](https://www.lexlang.org/manifesto) · [All packages](https://lexlang.org)
 
 JOSE for Lex — JSON Web Signature, Token, and Key (JWS / JWT / JWK), built in pure Lex on top of `std.crypto`.
 
