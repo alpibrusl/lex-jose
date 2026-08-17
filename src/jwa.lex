@@ -1,9 +1,8 @@
 # JWA — JSON Web Algorithms (RFC 7518), plus the SD-JWT / AP2 target set.
 #
-# `alg_supported` gates the algorithms this build can actually sign/verify:
-# ES256 (ECDSA P-256) needs the std.crypto P-256 primitive (lex-lang #652),
-# which is on lex-lang main but not yet in a released toolchain. Until then it
-# parses and round-trips through the API but signing/verifying returns an error.
+# `alg_supported` gates the algorithms this build can actually sign/verify.
+# As of toolchain v0.10.8 std.crypto carries P-256 (lex-lang #652), so all
+# four algorithms — HS256, HS512, EdDSA, ES256 — are live.
 
 type Alg = HS256 | HS512 | EdDSA | ES256
 
@@ -36,11 +35,18 @@ fn alg_from_str(s :: Str) -> Option[Alg] {
   }
 }
 
-# Can this build sign/verify the algorithm? ES256 awaits std.crypto P-256.
-fn alg_supported(a :: Alg) -> Bool {
+# Can this build sign/verify the algorithm?
+fn alg_supported(a :: Alg) -> Bool
+  examples {
+    alg_supported(ES256) => true,
+    alg_supported(HS256) => true
+  }
+{
   match a {
-    ES256 => false,
-    _ => true,
+    HS256 => true,
+    HS512 => true,
+    EdDSA => true,
+    ES256 => true,
   }
 }
 
