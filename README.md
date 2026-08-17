@@ -2,7 +2,8 @@
 
 **Part of the [Lex](https://lexlang.org) project** — [Manifesto](https://www.lexlang.org/manifesto) · [All packages](https://lexlang.org)
 
-JOSE for Lex — JSON Web Signature, Token, and Key (JWS / JWT / JWK), built in pure Lex on top of `std.crypto`.
+JOSE for Lex — JSON Web Signature, Token, and Key (JWS / JWT / JWK) plus SD-JWT
+selective disclosure and AP2 mandate types, built in pure Lex on top of `std.crypto`.
 
 ```
 import "lex-jose/jwt" as jwt
@@ -29,7 +30,7 @@ each reinvent it.
 |-----|------|--------|
 | `HS256` / `HS512` | HMAC (symmetric) | ✅ available |
 | `EdDSA` (Ed25519) | asymmetric | ✅ available |
-| `ES256` (ECDSA P-256) | asymmetric | ⏳ pending — needs the `std.crypto` P-256 primitive ([lex-lang #652](https://github.com/alpibrusl/lex-lang/pull/652)), which is on `main` but not yet in a released toolchain. The API accepts `ES256`; sign/verify return an error until the primitive ships. |
+| `ES256` (ECDSA P-256) | asymmetric | ✅ available (toolchain ≥ v0.10.8 carries the `std.crypto` P-256 primitive from [lex-lang #652](https://github.com/alpibrusl/lex-lang/pull/652)). Keys: 32-byte secret scalar to sign, 33-byte compressed public point to verify. JWS signatures travel as raw 64-byte R\|\|S per RFC 7518 §3.4; `src/der.lex` converts to/from the DER form the primitive speaks. |
 
 ## Modules
 
@@ -37,6 +38,15 @@ each reinvent it.
 - **`jws`** — JWS Compact Serialization: `sign_compact` / `verify_compact`.
 - **`jwt`** — JWT over JWS: `encode` / `decode` (claims as a JSON string, so any claim set works).
 - **`jwk`** — OKP (Ed25519) JWK publishing + RFC 7638 thumbprints (key IDs).
+- **`der`** — ECDSA-Sig-Value DER ↔ raw 64-byte R||S conversion for ES256.
+- **`sd_jwt`** — SD-JWT selective disclosure: `conceal` / `make_disclosure`,
+  `issue`, `present` (holder picks the subset), `verify` (digest membership is
+  checked against the signed `_sd` before a disclosure is parsed).
+- **`mandate`** — AP2 `CheckoutMandate` / `PaymentMandate`: `seal_*` /
+  `verify_*`, hash binding of a payment to the literal checkout token it
+  accepts, re-derived totals (a lying `total_cents` is unsealable and
+  unverifiable), integer cents throughout, expiry checked against a
+  caller-supplied `now` so verification stays pure.
 
 ## Security
 
@@ -56,9 +66,12 @@ reimplemented across both.
 
 ## Roadmap
 
-- **ES256** sign/verify + EC P-256 JWKs, once `std.crypto` P-256 lands in a release.
-- **SD-JWT** (selective disclosure + key binding / proof-of-possession) — the AP2 mandate format. Disclosure/`_sd` digest mechanics are algorithm-independent (SHA-256) and work over EdDSA today; ES256 is the interop target.
-- **exp / nbf** time-based claim validation in `jwt.decode`.
+- **SD-JWT key binding** (KB-JWT / proof-of-possession) and array-element
+  (`...`) disclosures — v0.1 ships object-property disclosures without KB.
+- **EC P-256 JWKs** — needs a point-decompression primitive in `std.crypto`
+  (the 33-byte compressed point can't yield the JWK `x`/`y` pair in pure Lex).
+- **exp / nbf** time-based claim validation in `jwt.decode` (the `mandate`
+  module already checks expiry for its own types).
 - **JWS JSON Serialization** (in addition to Compact).
 
 ## License

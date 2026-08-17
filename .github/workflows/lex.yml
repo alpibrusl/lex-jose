@@ -5,23 +5,35 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # Pinned toolchain. Bump when you upgrade — must carry std.crypto P-256
+  # (>= v0.10.8) for the ES256 path.
+  LEX_VERSION: v0.10.11
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Lex toolchain
+      - name: Install Lex toolchain (pre-built binary)
         run: |
-          git clone --depth=1 --branch v0.10.0 https://github.com/alpibrusl/lex-lang /tmp/lex-lang
-          cd /tmp/lex-lang && cargo build --release -p lex-cli
-          echo "/tmp/lex-lang/target/release" >> $GITHUB_PATH
+          set -euo pipefail
+          TARGET=x86_64-unknown-linux-gnu
+          URL="https://github.com/alpibrusl/lex-lang/releases/download/${LEX_VERSION}/lex-${LEX_VERSION}-${TARGET}.tar.gz"
+          curl -sSfL "$URL" | tar -xz
+          sudo install -m 0755 "lex-${LEX_VERSION}-${TARGET}/lex" /usr/local/bin/lex
+          lex --version
 
       - name: Install package dependencies
         run: lex pkg install
 
       - name: Type-check (strict)
-        run: lex check --strict src/main.lex
+        run: |
+          set -e
+          for f in src/*.lex; do
+            lex check --strict "$f"
+          done
 
       - name: Format check
         run: lex fmt --check src/ tests/

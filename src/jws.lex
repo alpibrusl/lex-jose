@@ -19,6 +19,8 @@ import "std.list" as list
 
 import "./jwa" as jwa
 
+import "./der" as der
+
 # The protected header we emit and validate.
 type Header = { alg :: Str, typ :: Str }
 
@@ -27,13 +29,18 @@ fn header_json(alg :: jwa.Alg, typ :: Str) -> Str {
 }
 
 # Raw signature bytes over the signing input, dispatched by algorithm.
-# `key` is the HMAC secret (HS*) or the 32-byte Ed25519 seed (EdDSA).
+# `key` is the HMAC secret (HS*), the 32-byte Ed25519 seed (EdDSA), or the
+# 32-byte P-256 secret scalar (ES256). ES256 signatures travel as the raw
+# 64-byte R||S per RFC 7518 §3.4 — std.crypto emits DER, so we convert.
 fn sign_bytes(alg :: jwa.Alg, key :: Bytes, signing_input :: Str) -> Result[Bytes, Str] {
   match alg {
     HS256 => Ok(crypto.hmac_sha256(key, bytes.from_str(signing_input))),
     HS512 => Ok(crypto.hmac_sha512(key, bytes.from_str(signing_input))),
     EdDSA => crypto.ed25519_sign(key, bytes.from_str(signing_input)),
-    ES256 => Err("ES256 not supported in this build (needs std.crypto P-256, lex-lang #652)"),
+    ES256 => match crypto.p256_sign(key, bytes.from_str(signing_input)) {
+      Err(e) => Err(e),
+      Ok(der_sig) => der.der_to_raw(der_sig),
+    },
   }
 }
 
@@ -48,8 +55,9 @@ fn sign_compact(alg :: jwa.Alg, key :: Bytes, typ :: Str, payload :: Bytes) -> R
   }
 }
 
-# Verify a JWS compact token. `key` is the HMAC secret (HS*) or the 32-byte
-# Ed25519 PUBLIC key (EdDSA). On success returns the decoded payload bytes.
+# Verify a JWS compact token. `key` is the HMAC secret (HS*), the 32-byte
+# Ed25519 PUBLIC key (EdDSA), or the 33-byte compressed P-256 PUBLIC point
+# (ES256). On success returns the decoded payload bytes.
 fn verify_compact(alg :: jwa.Alg, key :: Bytes, token :: Str) -> Result[Bytes, Str] {
   let parts := str.split(token, ".")
   if list.len(parts) == 3 {
@@ -111,7 +119,13 @@ fn verify_sig(alg :: jwa.Alg, key :: Bytes, signing_input :: Str, sig_b64 :: Str
       Err(_) => Err("bad signature encoding"),
       Ok(sig) => Ok(crypto.ed25519_verify(key, bytes.from_str(signing_input), sig)),
     },
-    ES256 => Err("ES256 not supported in this build (needs std.crypto P-256, lex-lang #652)"),
+    ES256 => match crypto.base64url_decode(sig_b64) {
+      Err(_) => Err("bad signature encoding"),
+      Ok(raw) => match der.raw_to_der(raw) {
+        Err(_) => Ok(false),
+        Ok(der_sig) => Ok(crypto.p256_verify(key, bytes.from_str(signing_input), der_sig)),
+      },
+    },
   }
 }
 
